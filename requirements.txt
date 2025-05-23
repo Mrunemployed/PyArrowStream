@@ -1,0 +1,4 @@
+pyarrow==20.0.0
+dash==3.0.4
+dash_bootstrap_components==2.0.3
+tzdata==2025.2
