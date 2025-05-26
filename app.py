@@ -1,4 +1,3 @@
-# ─────────────────────────────  app.py  ─────────────────────────────
 import queue
 import random
 import datetime
@@ -13,7 +12,6 @@ from mockiproducer  import Producer
 from mockiConsumer  import Consumer
 from streamhub import stream_pipeline          # <— holds the shared Queue
 
-# ---------- constants ----------
 TYPE_MAP = {
     "Integer":           pa.int64(),
     "Float":             pa.float64(),
@@ -22,13 +20,11 @@ TYPE_MAP = {
     "Datetime":          pa.timestamp("ns"),
 }
 
-# ---------- globals (initially None / empty) ----------
 producer:  Producer | None = None
 consumer:  Consumer | None = None
 ipc_queue = queue.Queue()        # Python std-lib queue
 all_tables: list[pa.Table] = []                # accumulate batches
 
-# ---------- Dash layout ----------
 app = Dash(__name__, external_stylesheets=[dbc.themes.COSMO])
 
 app.layout = dbc.Container(fluid=True, className="py-4", children=[
@@ -79,8 +75,6 @@ app.layout = dbc.Container(fluid=True, className="py-4", children=[
     # ticks every second – enabled / disabled by callbacks
     dcc.Interval(id="interval", interval=1_000, disabled=True),
 ])
-
-# ---------- callbacks ----------
 @app.callback(
     Output("interval", "disabled"),
     Input("start-button", "n_clicks"),
@@ -97,7 +91,6 @@ def toggle_interval(start_clicks, stop_clicks, typ):
 
     trigger = ctx.triggered_id
 
-    # ---------- START ----------
     if trigger == "start-button":
         dtype  = TYPE_MAP[typ]
         schema = pa.schema([("value", dtype)])
@@ -117,7 +110,6 @@ def toggle_interval(start_clicks, stop_clicks, typ):
         all_tables.clear()
         return False       # enable Interval
 
-    # ---------- STOP ----------
     if trigger == "stop-button":
         if producer:
             producer.stop_streaming()
@@ -153,7 +145,6 @@ def stream_step(_, conversion_type):
     if producer is None:
         return "[!] Click Start to begin streaming."
 
-    # ---------- generate one synthetic value ----------
     if conversion_type == "Integer":
         val = random.randint(0, 100)
     elif conversion_type == "Float":
