@@ -1,4 +1,7 @@
 pyarrow==20.0.0
-dash==3.0.4
-dash_bootstrap_components==2.0.3
-tzdata==2025.2
+grpc==1.71.0
+grpcio-tools=1.71.0
+pydantic==2.11.5
+fastapi==0.115.12
+uvicorn
+websockets

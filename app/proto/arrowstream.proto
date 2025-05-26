@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package stream;
+
+service StreamService {
+  rpc StartStream (StreamRequest) returns (stream StreamResponse);
+  rpc StopStream (StopRequest) returns (StopResponse);
+}
+
+message StreamRequest {}
+
+message StopRequest {}
+
+message StreamResponse {
+  bytes arrow_table = 1;
+}
+
+message StopResponse {
+  bool success = 1;
+}

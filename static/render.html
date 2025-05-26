@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live gRPC Arrow Stream</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+    body { background-color: #0f172a; color: #f1f5f9; padding: 2rem; }
+    h1 { font-size: 2rem; font-weight: 600; margin-bottom: 1rem; }
+    .controls { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    button {
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .start-btn { background-color: #22c55e; color: #fff; }
+    .start-btn:hover { background-color: #16a34a; }
+    .stop-btn { background-color: #ef4444; color: #fff; }
+    .stop-btn:hover { background-color: #dc2626; }
+    .error-message { color: #f87171; font-size: 0.9rem; margin-bottom: 1rem; }
+    .section { margin-bottom: 2rem; }
+    .stream-table-wrapper {
+      overflow-x: auto;
+      border-radius: 12px;
+      background-color: #1e293b;
+      padding: 1rem;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #334155;
+      text-align: left;
+    }
+    th { background-color: #334155; font-weight: 600; }
+    tr:hover { background-color: #475569; }
+    pre.raw {
+      background-color: #1e293b;
+      padding: 1rem;
+      border-radius: 12px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <h1> ⇞ Real-time Arrow Stream</h1>
+
+  <div class="controls">
+    <button class="start-btn" onclick="startStream()">Start Streaming</button>
+    <button class="stop-btn" onclick="stopStream()">Stop Streaming</button>
+  </div>
+
+  <div id="error" class="error-message"></div>
+
+  <div class="section">
+    <h2> Formatted Table View</h2>
+    <div class="stream-table-wrapper">
+      <table id="stream-table">
+        <thead>
+          <tr id="table-header"></tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2> Raw Arrow JSON</h2>
+    <pre class="raw" id="raw-output"></pre>
+  </div>
+
+  <script>
+    let socket = null;
+    let headerInitialized = false;
+
+    function startStream() {
+      const errorBox = document.getElementById("error");
+      errorBox.textContent = "";
+
+      if (socket && socket.readyState === WebSocket.OPEN) return;
+
+      try {
+        socket = new WebSocket(`ws://${window.location.host}/server/ws/stream`);
+
+        socket.onmessage = function(event) {
+          const data = JSON.parse(event.data);
+
+          // Update Raw Output
+          document.getElementById("raw-output").textContent = JSON.stringify(data, null, 2);
+
+          // Update Table
+          const thead = document.getElementById("table-header");
+          const tbody = document.getElementById("table-body");
+
+          if (!headerInitialized) {
+            thead.innerHTML = Object.keys(data).map(k => `<th>${k}</th>`).join('');
+            headerInitialized = true;
+          }
+
+          const row = document.createElement("tr");
+          row.innerHTML = Object.values(data).map(v => `<td>${v}</td>`).join('');
+          tbody.appendChild(row);
+        };
+
+        socket.onclose = () => console.log("🔌 WebSocket closed");
+        socket.onerror = (err) => {
+          console.error("WebSocket error:", err);
+          errorBox.textContent = "❌ Unable to connect to stream. Make sure the WebSocket server is running.";
+        };
+      } catch (err) {
+        console.error("WebSocket exception:", err);
+        document.getElementById("error").textContent = "❌ Exception occurred trying to connect.";
+      }
+    }
+
+    function stopStream() {
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
+    }
+  </script>
+</body>
+</html>
