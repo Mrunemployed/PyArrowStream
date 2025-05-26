@@ -11,38 +11,38 @@ import time
 
 class Producer:
 
-    def __init__(self, schema: pa.Schema):
+    def __init__(
+        self,
+        schema: pa.Schema,
+    ):
         self.loop : AbstractEventLoop = None
-        self.queue : Queue = None
-        self.thread_id : int = None
-        self.event : asyncio.Event = asyncio.Event()
-        self.syncEvent : asyncio.Event = asyncio.Event()
         self.schema = schema
         self.sink   = pa.BufferOutputStream()
-        self.writer = ipc.RecordBatchStreamWriter(self.sink, self.schema)
+        self.writer = ipc.new_stream(self.sink, self.schema)
         self._offset = 0 
 
     async def _start_(self):
-        self.queue = Queue()
-        self.syncEvent.set()
+        await stream_pipeline.syncEvent.wait()
         # keepalive = self.event.wait()
     
     async def push_task(self, arr):
+        print(f"[DEBUG] Queue ID: {id(stream_pipeline._pipeline)}")
+        await asyncio.sleep(1)
         # Serialize to IPC bytes and stream
-        await stream_pipeline.syncEvent.wait()
         print(f"[PRODUCER] Pushing data for processing")
         batch = pa.RecordBatch.from_arrays([arr], names=['value'])
         self.writer.write_batch(batch)
         full = self.sink.getvalue().to_pybytes()
         new  = full[self._offset:]
         self._offset = len(full)
-        await stream_pipeline.stream(new)
+        await stream_pipeline._pipeline.put(new)
 
-    async def end_stream(self):
-        self.writer.close()
-        await stream_pipeline.stream_complete()
-
-        
+    def end_stream(self):
+        stream_pipeline.stream_complete()
+        try:
+            self.writer.close()
+        except: pass
+        # await stream_pipeline.stream_complete()
 
     def input_anchor(self,conversion_type:str=None, user_input:Any=None):
         if not (conversion_type and user_input):
@@ -62,36 +62,16 @@ class Producer:
             arr = pa.array([user_input.lower()], type=pa.string())
 
         elif conversion_type == "Datetime":
-            ns = datetime.datetime.now()
-            # ns = time.time()
-            # str_time = str(ns)
             print(f"[PRODUCER] generated time string: {str(user_input)}")
             arr = pa.array([user_input], type=pa.timestamp('ns'))
-            # arr = pa.array([user_input], type=pa.string())
-
 
         else:
             # fallback to raw string if the user_input doesnt match
             arr = pa.array([user_input], type=pa.string())
 
-        # Pack into a Table
-        # table = pa.Table.from_arrays([arr], names=['value'])
-        asyncio.run_coroutine_threadsafe(
-            self.push_task(arr=arr),
-            stream_pipeline.loop
-        )
-    
-    def end_stream(self):
-        """
-        End Stream and close writer
-        """
-        try:
-            self.writer.close()
-        except Exception:
-            pass
+        asyncio.run_coroutine_threadsafe(self.push_task(arr=arr),self.loop)
 
-
-    def start_producer(self):
+    def _set_loop_(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self.loop.create_task(
@@ -99,4 +79,20 @@ class Producer:
         )
         if not self.loop.is_running():
             self.loop.run_forever()
-        # self.loop.run_forever()
+        self.loop.run_forever()
+
+    def start_streaming(self, schema:pa.Schema=None):
+        if schema is not None:
+            self.schema = schema
+        if self.loop is None:                   # first ever start
+            Thread(target=self._set_loop_, daemon=True).start()
+        else:
+            self.loop.call_soon_threadsafe(self.stop_streaming)
+
+
+    def stop_streaming(self): self.loop.call_soon_threadsafe(self.end_stream) if self.loop else None
+
+    def destroy(self):
+        self.stop_streaming()
+        self.loop = None
+        self.active.clear()
