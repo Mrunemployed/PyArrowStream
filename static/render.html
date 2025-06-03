@@ -107,9 +107,19 @@
             headerInitialized = true;
           }
 
-          const row = document.createElement("tr");
-          row.innerHTML = Object.values(data).map(v => `<td>${v}</td>`).join('');
-          tbody.appendChild(row);
+          if (!headerInitialized) {
+            thead.innerHTML = Object.keys(data).map(k => `<th>${k}</th>`).join('');
+            headerInitialized = true;
+          }
+
+          // Convert column-major to row-major
+          const numRows = Object.values(data)[0]?.length || 0;
+          for (let i = 0; i < numRows; i++) {
+            const row = document.createElement("tr");
+            row.innerHTML = Object.keys(data).map(k => `<td>${data[k][i]}</td>`).join('');
+            tbody.appendChild(row);
+          }
+
         };
 
         socket.onclose = () => console.log("🔌 WebSocket closed");

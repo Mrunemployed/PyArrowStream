@@ -24,14 +24,17 @@ class StreamService(arrowstream_pb2_grpc.StreamService):
             ids = list(range(i * num_rows, (i + 1) * num_rows))
             names = [random.choice(["Alice", "Bob", "Charlie", "Diana"]) for _ in range(num_rows)]
             scores = [round(random.uniform(50.0, 100.0), 2) for _ in range(num_rows)]
-            timestamps = [datetime.datetime.now() for _ in range(num_rows)]
+            timestamps = [datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") for _ in range(num_rows)]
 
             # Create Arrow table
             batch = pa.table({
                 "id": pa.array(ids, type=pa.int32()),
                 "name": pa.array(names, type=pa.string()),
                 "score": pa.array(scores, type=pa.float64()),
-                "timestamp": pa.array(timestamps, type=pa.timestamp("us")),
+                # "timestamp": pa.array(timestamps, type=pa.timestamp("us")),
+                "timestamp": pa.array(timestamps, type=pa.string()),
+
+
             })
 
             # Serialize to Arrow IPC format

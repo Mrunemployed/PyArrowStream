@@ -15,27 +15,28 @@ async def start_client_stream():
 @router.websocket("/ws/stream")
 async def websocket_stream(websocket:WebSocket):
     await websocket.accept()
-    asyncio.create_task(run())
+    task = asyncio.create_task(run())
     try:
         while True:
             data = await StreamingQ.get()
             if data == "__EOF__":
-                await websocket.close(code=1000)
+                print("[STREAMING] Recieved EOF")
                 break
             for keys,arrowColumn in data.items():
                 if isinstance(arrowColumn[0], str):
                     # Skip
                     continue
                 if isinstance(arrowColumn[0], datetime.datetime):
-                    arr = pa.array(arrowColumn, type=pa.timestamp("ns"))
+                    arr = pa.array(arrowColumn, type=pa.timestamp("us"))
                     print(f"[DEBUG] Field '{keys}' → Arrow type: {arr.type}")
                     print(f"[DEBUG] Arrow logical type: {repr(arr.type)}")
-
                     # droptz = arr.cast(pa.timestamp('us'))
-                    out = pc.strftime(arr, format="%Y-%m-%d %H:%M:%S %f")
+                    out = pc.strftime(arr, format="%Y-%m-%d %H:%M:%S")
                     data[keys] = out.to_pylist()
             print("Type of data recieved: ", type(data))
             await websocket.send_json(data)
     except Exception as err:
-        await websocket.close()
+        task.cancel()
         print(f"[Websocket] Closed due to error: {err}")
+    finally:
+        await websocket.close(code=1000)
